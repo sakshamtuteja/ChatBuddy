@@ -1,5 +1,7 @@
 package com.example.chatapp
 
+import android.annotation.SuppressLint
+import android.net.Uri
 import android.provider.ContactsContract.CommonDataKinds.Email
 import android.util.Log
 import androidx.compose.material3.Text
@@ -12,15 +14,18 @@ import com.example.chatapp.data.UserData
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.toObject
+import com.google.firebase.storage.FirebaseStorage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.lang.Exception
+import java.util.UUID
 import javax.inject.Inject
 
 @HiltViewModel
 class LCViewModel @Inject constructor(
 
     val auth :FirebaseAuth,
-    var db:FirebaseFirestore
+    var db:FirebaseFirestore,
+    val storage:FirebaseStorage
 ):ViewModel() {
 
    var inProcess = mutableStateOf(false)
@@ -57,6 +62,7 @@ class LCViewModel @Inject constructor(
                 inProcess.value=false
             }
         }
+        inProcess.value=false
 
     }
 
@@ -79,8 +85,30 @@ class LCViewModel @Inject constructor(
                 }
             }
         }
+        inProcess.value=false
     }
 
+    fun uploadProfileimage(uri: Uri){
+        uploadImage(uri){
+        createOrUpdateProfile(imageurl = it.toString())
+        }
+    }
+@SuppressLint("SuspiciousIndentation")
+fun uploadImage(uri: Uri, onSuccess:(Uri)->Unit){
+inProcess.value=true
+    val storageRef = storage.reference
+    val uuid = UUID.randomUUID()
+    val imageRef=storageRef.child("images/$uuid")
+    val uploadTask=imageRef.putFile(uri)
+        uploadTask.addOnSuccessListener {
+val result = it.metadata?.reference?.downloadUrl
+            result?.addOnSuccessListener(onSuccess)
+            inProcess.value=false
+    }
+            .addOnFailureListener{
+                handleException(it)
+            }
+}
     fun createOrUpdateProfile(name:String?=null,number: String?=null,imageurl:String?=null){
         var uid=auth.currentUser?.uid
         val userData=UserData(
@@ -103,6 +131,7 @@ class LCViewModel @Inject constructor(
             .addOnFailureListener{
                 handleException(it,"Cannot Retrive User")
             }
+        inProcess.value=false
     }
     }
     private fun getUserData(uid:String) {
@@ -117,6 +146,7 @@ class LCViewModel @Inject constructor(
                 userData.value=user
             }
         }
+        inProcess.value=false
     }
     fun handleException(exception: Exception?=null,customMessage:String="") {
         Log.e("chatapp", "Chat App Exception : ", exception)
