@@ -1,8 +1,10 @@
 package com.example.chatapp.Screens
 
+import android.icu.lang.UCharacter.VerticalOrientation
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.Orientation
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,15 +26,24 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.VerticalAlignmentLine
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
 import com.example.chatapp.CommonDivider
 import com.example.chatapp.CommonImage
+import com.example.chatapp.DestinationScreen
 import com.example.chatapp.LCViewModel
 import com.example.chatapp.commonProgressBar
+import com.example.chatapp.data.UserData
+import com.example.chatapp.navigateTo
+import org.intellij.lang.annotations.JdkConstants.HorizontalAlignment
 import java.net.URL
 
 @Composable
@@ -43,6 +54,14 @@ fun ProfileScreen(navController: NavController, vm: LCViewModel) {
     if (inProgress) {
         commonProgressBar()
     } else {
+        val userData=vm.userData.value
+        var name by rememberSaveable {
+            mutableStateOf(userData?.name?:"")
+        }
+        var number by rememberSaveable {
+            mutableStateOf(userData?.number?:"")
+        }
+
         Column {
             ProfileContent(
                 modifier = Modifier
@@ -50,19 +69,32 @@ fun ProfileScreen(navController: NavController, vm: LCViewModel) {
                     .verticalScroll(rememberScrollState())
                     .padding(8.dp),
                 vm=vm,
-                name="",
-                number="",
-                onNameChange = {""},
-                onNumberChange = {""},
-                onSave = {},
-                onBack = {},
-                onLogout = {}
+                name=name,
+                number=number,
+                onNameChange = {name=it},
+                onNumberChange = {number=it},
+                onSave = {
+                    vm.createOrUpdateProfile(
+                        name=name,number=number
+                    )
+                },
+                onBack = {
+                    navigateTo(navController=navController, route = DestinationScreen.ChatList.route)
+                },
+                onLogout = {
+                    vm.logout()
+                    navigateTo(navController=navController, route = DestinationScreen.Login.route)
+                }
 
             )
+     Row (modifier = Modifier.fillMaxHeight().padding(bottom = 25.dp), verticalAlignment = Alignment.Bottom){
+         BottomNavigationMenu(
+             selectedItem = BottomNavigationItem.PROFILE, navcontroller = navController
+         )
+     }
 
-            BottomNavigationMenu(
-                selectedItem = BottomNavigationItem.PROFILE, navcontroller = navController
-            )
+
+
         }
 
     }
