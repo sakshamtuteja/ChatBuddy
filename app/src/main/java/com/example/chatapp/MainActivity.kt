@@ -18,6 +18,7 @@ import com.example.chatapp.Screens.ChatListScreen
 import com.example.chatapp.Screens.LoginScreen
 import com.example.chatapp.Screens.ProfileScreen
 import com.example.chatapp.Screens.SignUpScreen
+import com.example.chatapp.Screens.SingleChatScreen
 import com.example.chatapp.Screens.StatusScreen
 import com.example.chatapp.ui.theme.ChatAppTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -66,6 +67,12 @@ class MainActivity : ComponentActivity() {
             }
             composable(DestinationScreen.ChatList.route){
                 ChatListScreen(navController= navController,vm=vm)
+            }
+            composable(DestinationScreen.SingleChat.route){
+               val chatId=it.arguments?.getString("chatId")
+                chatId?.let {
+                    SingleChatScreen(navController=navController,vm=vm, chatId = chatId)
+                }
             }
             composable(DestinationScreen.StatusList.route){
                 StatusScreen(navController= navController,vm=vm)

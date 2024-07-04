@@ -6,6 +6,7 @@ import android.provider.ContactsContract.CommonDataKinds.Email
 import android.util.Log
 import androidx.compose.material3.Text
 import androidx.compose.runtime.mutableStateOf
+import androidx.core.app.NotificationCompat.MessagingStyle.Message
 import androidx.core.text.isDigitsOnly
 import androidx.lifecycle.ViewModel
 import androidx.navigation.NavController
@@ -13,16 +14,19 @@ import com.example.chatapp.data.CHATS
 import com.example.chatapp.data.ChatData
 import com.example.chatapp.data.ChatUser
 import com.example.chatapp.data.Event
+import com.example.chatapp.data.MESSAGE
 import com.example.chatapp.data.USER_NODE
 import com.example.chatapp.data.UserData
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.Filter
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.firestore.ktx.toObjects
 import com.google.firebase.firestore.toObject
 import com.google.firebase.storage.FirebaseStorage
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.lang.Exception
+import java.util.Calendar
 import java.util.UUID
 import javax.inject.Inject
 
@@ -40,6 +44,9 @@ class LCViewModel @Inject constructor(
     var signIn = mutableStateOf(false)
     val userData = mutableStateOf<UserData?>(null)
     val chats = mutableStateOf<List<ChatData>>(listOf())
+    val chatMessages= mutableStateOf<List<com.example.chatapp.data.Message>>(listOf())
+    val inProgressChatMessage= mutableStateOf(false)
+    var currentChatMessageListener: ListenerRegistration?=null
 
     init {
         val currentUser = auth.currentUser
@@ -49,26 +56,59 @@ class LCViewModel @Inject constructor(
         }
     }
 
-    fun populateChat(){
-        inProcess.value=true
+    fun populateMessages(chatId: String){
+        inProgressChatMessage.value=true
+        currentChatMessageListener=db.collection(CHATS).document(chatId).collection(MESSAGE)
+            .addSnapshotListener { value, error ->
+
+                if(error!=null){
+                    handleException(error)
+
+                }
+                if(value!=null){
+                    /*chatMessages.value=value.documents.mapNotNull {
+                        it.toObject<Message>()
+                    }.sortedBy { it.timestamp }
+                    inProgressChatMessage.value=false*/
+                    chatMessages.value=value.documents.mapNotNull {
+                        it.toObject<com.example.chatapp.data.Message>()
+                    }.sortedBy { it.timestamp }
+                    inProgressChatMessage.value=false
+                }
+
+            }
+    }
+
+    fun depopulateMessage(){
+        chatMessages.value= listOf()
+        currentChatMessageListener=null
+    }
+
+    fun populateChat() {
+        inProcess.value = true
         db.collection(CHATS).where(
             Filter.or(
-                Filter.equalTo("user1.userId",userData.value?.userId),
-                Filter.equalTo("user2.userId",userData.value?.userId),
+                Filter.equalTo("user1.userId", userData.value?.userId),
+                Filter.equalTo("user2.userId", userData.value?.userId),
             )
-        ).addSnapshotListener{
-            value,error->
-            if(error!=null){
+        ).addSnapshotListener { value, error ->
+            if (error != null) {
                 handleException(error)
 
             }
-            if(value!=null){
-                chats.value=value.documents.mapNotNull {
+            if (value != null) {
+                chats.value = value.documents.mapNotNull {
                     it.toObject<ChatData>()
                 }
-                inProcess.value=false
+                inProcess.value = false
             }
         }
+    }
+
+    fun onSendReply(chatId: String, message: String) {
+        val time = Calendar.getInstance().time.toString()
+        val msg= com.example.chatapp.data.Message(userData.value?.userId, message, time)
+        db.collection(CHATS).document(chatId).collection(MESSAGE).document().set(msg)
     }
 
     fun signUp(name: String, number: String, email: String, password: String) {
@@ -163,8 +203,8 @@ class LCViewModel @Inject constructor(
                         .addOnSuccessListener {
                             inProcess.value = false
                         }
-                        .addOnFailureListener{
-                            handleException(it,"Cannot update user")
+                        .addOnFailureListener {
+                            handleException(it, "Cannot update user")
                         }
 
                 } else {
@@ -211,6 +251,8 @@ class LCViewModel @Inject constructor(
         auth.signOut()
         signIn.value = false
         userData.value = null
+        depopulateMessage()
+        currentChatMessageListener=null
         eventMutableState.value = Event("Logged Out")
     }
 
@@ -257,7 +299,7 @@ class LCViewModel @Inject constructor(
                             }
 
                         }
-                        .addOnFailureListener{
+                        .addOnFailureListener {
                             handleException(it)
                         }
                 } else {
